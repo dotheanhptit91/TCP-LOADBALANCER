@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tcp-lb-rollout-demo
+  namespace: tcp-lb-mini
+  labels:
+    lab: rolling-update-rollback
+spec:
+  replicas: 3
+  revisionHistoryLimit: 5
+  progressDeadlineSeconds: 45
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: tcp-lb-rollout-demo
+  template:
+    metadata:
+      labels:
+        app: tcp-lb-rollout-demo
+        lab: rolling-update-rollback
+        lab.tcp-lb/version: v1
+      annotations:
+        lab.tcp-lb/version: v1
+    spec:
+      nodeSelector:
+        tcp-lb-role: dataplane
+      containers:
+        - name: demo
+          image: tcp-lb-mini/tcp-backend-worker:v1
+          imagePullPolicy: Never
+          env:
+            - {name: WORKER_NAME, value: rollout-demo-v1}
+            - {name: SOURCE_PORT_RANGE, value: 3000-3010}
+            - {name: REMOTE_ADDR, value: "127.0.0.1:9000"}
+            - {name: CONNECT_INTERVAL, value: 3s}
+            - {name: SESSION_DURATION, value: 0s}
+            - {name: REDIS_ADDR, value: "redis:6379"}
+          ports:
+            - {name: http, containerPort: 8080}
+          readinessProbe:
+            httpGet: {path: /healthz, port: http}
+            initialDelaySeconds: 1
+            periodSeconds: 2
+          livenessProbe:
+            httpGet: {path: /healthz, port: http}
+            initialDelaySeconds: 3
+            periodSeconds: 5
+        - name: echo
+          image: redis:7.4-alpine
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-ec", "exec nc -lk -p 9000 -e cat"]
+          ports:
+            - {name: echo, containerPort: 9000}
+          readinessProbe:
+            tcpSocket: {port: echo}
+            periodSeconds: 2
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tcp-lb-rollout-demo
+  namespace: tcp-lb-mini
+  labels:
+    lab: rolling-update-rollback
+spec:
+  selector:
+    app: tcp-lb-rollout-demo
+  ports:
+    - {name: http, port: 8080, targetPort: http}

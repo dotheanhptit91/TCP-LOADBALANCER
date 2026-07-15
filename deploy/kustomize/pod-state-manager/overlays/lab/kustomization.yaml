@@ -1,0 +1,18 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+images:
+  - name: tcp-lb-mini/pod-state-manager
+    newTag: v2
+replicas:
+  - name: pod-state-manager-kustomize
+    count: 3
+patches:
+  - target:
+      kind: Deployment
+      name: pod-state-manager-kustomize
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/env/0/value
+        value: kustomize-overlay-v2

@@ -1,0 +1,97 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pod-state-manager-blue
+  namespace: tcp-lb-mini
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: pod-state-manager-bg, slot: blue}
+  template:
+    metadata:
+      labels: {app: pod-state-manager-bg, slot: blue}
+    spec:
+      containers:
+        - name: manager
+          image: tcp-lb-mini/pod-state-manager:v1
+          imagePullPolicy: Never
+          env:
+            - {name: LAB_VERSION, value: blue-v1}
+            - {name: REDIS_ADDR, value: "redis:6379"}
+            - {name: POLL_INTERVAL, value: 60s}
+            - name: MANAGED_SERVICES
+              value: tcp-lb-gateway=tcp-lb-gateway:8080,tcp-backend-worker1=tcp-backend-worker1:8080,tcp-backend-worker2=tcp-backend-worker2:8080
+        - name: release-status
+          image: redis:7.4-alpine
+          imagePullPolicy: IfNotPresent
+          env:
+            - {name: RELEASE_COLOR, value: blue}
+            - {name: RELEASE_VERSION, value: v1}
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              while true; do
+                body="color=${RELEASE_COLOR} version=${RELEASE_VERSION} pod=${HOSTNAME}"
+                length="$(printf %s "$body" | wc -c)"
+                { printf 'HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %s\r\nConnection: close\r\n\r\n%s' "$length" "$body"; } |
+                  nc -l -p 8080 -w 2
+              done
+          ports: [{name: status, containerPort: 8080}]
+          readinessProbe:
+            tcpSocket: {port: status}
+            periodSeconds: 2
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pod-state-manager-green
+  namespace: tcp-lb-mini
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: pod-state-manager-bg, slot: green}
+  template:
+    metadata:
+      labels: {app: pod-state-manager-bg, slot: green}
+    spec:
+      containers:
+        - name: manager
+          image: tcp-lb-mini/pod-state-manager:v2
+          imagePullPolicy: Never
+          env:
+            - {name: LAB_VERSION, value: green-v2}
+            - {name: REDIS_ADDR, value: "redis:6379"}
+            - {name: POLL_INTERVAL, value: 60s}
+            - name: MANAGED_SERVICES
+              value: tcp-lb-gateway=tcp-lb-gateway:8080,tcp-backend-worker1=tcp-backend-worker1:8080,tcp-backend-worker2=tcp-backend-worker2:8080
+        - name: release-status
+          image: redis:7.4-alpine
+          imagePullPolicy: IfNotPresent
+          env:
+            - {name: RELEASE_COLOR, value: green}
+            - {name: RELEASE_VERSION, value: v2}
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              while true; do
+                body="color=${RELEASE_COLOR} version=${RELEASE_VERSION} pod=${HOSTNAME}"
+                length="$(printf %s "$body" | wc -c)"
+                { printf 'HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %s\r\nConnection: close\r\n\r\n%s' "$length" "$body"; } |
+                  nc -l -p 8080 -w 2
+              done
+          ports: [{name: status, containerPort: 8080}]
+          readinessProbe:
+            tcpSocket: {port: status}
+            periodSeconds: 2
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pod-state-manager-active
+  namespace: tcp-lb-mini
+spec:
+  selector: {app: pod-state-manager-bg, slot: blue}
+  ports:
+    - {name: status, port: 8080, targetPort: status}

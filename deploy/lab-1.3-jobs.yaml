@@ -1,0 +1,83 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: tcp-lb-one-off-check
+  namespace: tcp-lb-mini
+  labels:
+    lab: jobs-cronjobs
+spec:
+  # Kubernetes retries failed Pods at most three times before failing the Job.
+  backoffLimit: 3
+  activeDeadlineSeconds: 120
+  template:
+    metadata:
+      labels:
+        app: tcp-lb-one-off-check
+        lab: jobs-cronjobs
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: check
+          image: redis:7.4-alpine
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              gateway="$(wget -qO- http://tcp-lb-gateway:8080/healthz)"
+              worker="$(wget -qO- http://tcp-backend-worker1:8080/healthz)"
+
+              echo "gateway: $gateway"
+              echo "worker1: $worker"
+              echo "$gateway" | grep -q '"status":"healthy"'
+              echo "$worker" | grep -q '"status":"healthy"'
+              echo "$worker" | grep -Eq '"successful_connections":[1-9][0-9]*'
+
+              completed_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+              redis-cli -h redis SET lab:job:last_success "$completed_at" EX 86400
+              echo "one-off check completed at $completed_at"
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: tcp-lb-health-check
+  namespace: tcp-lb-mini
+  labels:
+    lab: jobs-cronjobs
+spec:
+  # Every minute keeps the schedule observable during this lab.
+  schedule: "* * * * *"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 30
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 60
+      template:
+        metadata:
+          labels:
+            app: tcp-lb-health-check
+            lab: jobs-cronjobs
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: check
+              image: redis:7.4-alpine
+              imagePullPolicy: IfNotPresent
+              command:
+                - /bin/sh
+                - -ec
+                - |
+                  gateway="$(wget -qO- http://tcp-lb-gateway:8080/healthz)"
+                  worker1="$(wget -qO- http://tcp-backend-worker1:8080/healthz)"
+                  worker2="$(wget -qO- http://tcp-backend-worker2:8080/healthz)"
+
+                  echo "$gateway" | grep -q '"status":"healthy"'
+                  echo "$worker1" | grep -q '"status":"healthy"'
+                  echo "$worker2" | grep -q '"status":"healthy"'
+
+                  completed_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+                  redis-cli -h redis SET lab:cronjob:last_success "$completed_at" EX 3600
+                  echo "scheduled health check completed at $completed_at"

@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/anhdt61/tcp-loadbalacer/internal/config"
+	"github.com/anhdt61/tcp-loadbalacer/internal/selfheal"
 	"github.com/anhdt61/tcp-loadbalacer/internal/state"
 )
 
@@ -31,6 +32,9 @@ type gateway struct {
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	if err := selfheal.Start(ctx); err != nil {
+		fatal("network self-healing", err)
+	}
 
 	mappings, err := config.ParseMappings(env("PORT_MAPPINGS", "1000-1010=tcp-backend-worker1@10.10.0.0/24,2000-2010=tcp-backend-worker2@10.20.0.0/24"))
 	if err != nil {

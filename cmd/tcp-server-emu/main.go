@@ -11,11 +11,16 @@ import (
 	"syscall"
 
 	networkconfig "github.com/anhdt61/tcp-loadbalacer/internal/network"
+	"github.com/anhdt61/tcp-loadbalacer/internal/selfheal"
 )
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	if err := selfheal.Start(ctx); err != nil {
+		slog.Error("network self-healing", "error", err)
+		os.Exit(1)
+	}
 	routes, err := networkconfig.ParseRoutes(os.Getenv("STATIC_ROUTES"))
 	if err != nil {
 		slog.Error("invalid static routes", "error", err)

@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pod-state-manager-hpa
+  namespace: tcp-lb-mini
+spec:
+  replicas: 2
+  selector:
+    matchLabels: {app: pod-state-manager-hpa}
+  template:
+    metadata:
+      labels: {app: pod-state-manager-hpa}
+    spec:
+      containers:
+        - name: manager
+          image: tcp-lb-mini/pod-state-manager:v2
+          imagePullPolicy: Never
+          env:
+            - {name: LAB_VERSION, value: hpa-v2}
+            - {name: REDIS_ADDR, value: "redis:6379"}
+            - {name: POLL_INTERVAL, value: 60s}
+            - name: MANAGED_SERVICES
+              value: tcp-lb-gateway=tcp-lb-gateway:8080,tcp-backend-worker1=tcp-backend-worker1:8080,tcp-backend-worker2=tcp-backend-worker2:8080
+          resources:
+            requests: {cpu: 20m, memory: 16Mi}
+            limits: {cpu: 100m, memory: 64Mi}

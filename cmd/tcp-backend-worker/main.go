@@ -21,6 +21,7 @@ import (
 
 	"github.com/anhdt61/tcp-loadbalacer/internal/config"
 	networkconfig "github.com/anhdt61/tcp-loadbalacer/internal/network"
+	"github.com/anhdt61/tcp-loadbalacer/internal/selfheal"
 	"github.com/anhdt61/tcp-loadbalacer/internal/state"
 )
 
@@ -42,6 +43,9 @@ type worker struct {
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	if err := selfheal.Start(ctx); err != nil {
+		fatal("network self-healing", err)
+	}
 
 	portRange, err := config.ParsePortRange(env("SOURCE_PORT_RANGE", "1000-1010"))
 	if err != nil {

@@ -3,6 +3,36 @@ kind: Namespace
 metadata:
   name: tcp-loadbalacer
 ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: data-plane-self-healer
+  namespace: tcp-loadbalacer
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: data-plane-self-healer
+  namespace: tcp-loadbalacer
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: data-plane-self-healer
+  namespace: tcp-loadbalacer
+subjects:
+  - kind: ServiceAccount
+    name: data-plane-self-healer
+    namespace: tcp-loadbalacer
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: data-plane-self-healer
+---
 # Multus NetworkAttachmentDefinitions. This demo pins all data-plane Pods to
 # one labeled node because a bridge network is node-local.
 apiVersion: k8s.cni.cncf.io/v1
@@ -160,6 +190,7 @@ spec:
           ]
     spec:
       nodeSelector: {tcp-lb-role: dataplane}
+      serviceAccountName: data-plane-self-healer
       initContainers:
         - name: enable-ip-forwarding
           image: tcp-loadbalacer/tcp-lb-gateway:latest
@@ -181,6 +212,7 @@ spec:
             - {name: SERVER_CIDR, value: 10.30.0.0/24}
             - {name: GATEWAY_SERVER_IP, value: 10.30.0.254}
             - {name: REDIS_ADDR, value: "redis:6379"}
+            - {name: REQUIRED_NETWORK_INTERFACES, value: "worker1,worker2,server"}
           ports:
             - {name: health, containerPort: 8080}
           readinessProbe:
@@ -215,10 +247,13 @@ spec:
         k8s.v1.cni.cncf.io/networks: '[{"name":"server-net","interface":"server","ips":["10.30.0.10/24"]}]'
     spec:
       nodeSelector: {tcp-lb-role: dataplane}
+      serviceAccountName: data-plane-self-healer
       containers:
         - name: server
           image: tcp-loadbalacer/tcp-server-emu:latest
           imagePullPolicy: Never
+          env:
+            - {name: REQUIRED_NETWORK_INTERFACES, value: "server"}
           securityContext:
             runAsUser: 0
             capabilities:
@@ -242,6 +277,7 @@ spec:
         k8s.v1.cni.cncf.io/networks: worker1-net
     spec:
       nodeSelector: {tcp-lb-role: dataplane}
+      serviceAccountName: data-plane-self-healer
       containers:
         - name: worker
           image: tcp-loadbalacer/tcp-backend-worker:latest
@@ -255,6 +291,7 @@ spec:
             - {name: REMOTE_ADDR, value: "10.30.0.10:9000"}
             - {name: STATIC_ROUTES, value: 10.30.0.0/24=10.10.0.254}
             - {name: REDIS_ADDR, value: "redis:6379"}
+            - {name: REQUIRED_NETWORK_INTERFACES, value: "net1"}
           ports:
             - {name: health, containerPort: 8080}
           readinessProbe:
@@ -288,6 +325,7 @@ spec:
         k8s.v1.cni.cncf.io/networks: worker2-net
     spec:
       nodeSelector: {tcp-lb-role: dataplane}
+      serviceAccountName: data-plane-self-healer
       containers:
         - name: worker
           image: tcp-loadbalacer/tcp-backend-worker:latest
@@ -301,6 +339,7 @@ spec:
             - {name: REMOTE_ADDR, value: "10.30.0.10:9000"}
             - {name: STATIC_ROUTES, value: 10.30.0.0/24=10.20.0.254}
             - {name: REDIS_ADDR, value: "redis:6379"}
+            - {name: REQUIRED_NETWORK_INTERFACES, value: "net1"}
           ports:
             - {name: health, containerPort: 8080}
           readinessProbe:

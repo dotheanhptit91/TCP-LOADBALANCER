@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pod-state-manager-kustomize
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: pod-state-manager-kustomize}
+  template:
+    metadata:
+      labels: {app: pod-state-manager-kustomize}
+    spec:
+      containers:
+        - name: manager
+          image: tcp-lb-mini/pod-state-manager:v1
+          imagePullPolicy: Never
+          env:
+            - {name: LAB_VERSION, value: kustomize-base-v1}
+            - {name: REDIS_ADDR, value: "redis:6379"}
+            - {name: POLL_INTERVAL, value: 60s}
+            - name: MANAGED_SERVICES
+              value: tcp-lb-gateway=tcp-lb-gateway:8080,tcp-backend-worker1=tcp-backend-worker1:8080,tcp-backend-worker2=tcp-backend-worker2:8080

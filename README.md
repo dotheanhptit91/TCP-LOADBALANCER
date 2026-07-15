@@ -98,6 +98,8 @@ Transparent multi-homed routing cần CNI cung cấp nhiều interface. Manifest
 
 Manifest cũng có `kind-secondary-network-setup` DaemonSet để loại ba secondary CIDR khỏi `KIND-MASQ-AGENT`; nếu thiếu rule này, Kind sẽ SNAT source IP của worker trước khi packet tới gateway.
 
+Các Pod data-plane có watchdog cho interface Multus. Sau khi host/Kind reboot, nếu network namespace cũ bị mất interface secondary, watchdog dùng ServiceAccount `data-plane-self-healer` để xóa chính Pod đó. Deployment sẽ tạo Pod mới và Multus thực hiện lại CNI ADD; không cần rollout restart thủ công.
+
 Chuẩn bị:
 
 ```bash
