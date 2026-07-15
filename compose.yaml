@@ -1,0 +1,167 @@
+name: tcp-loadbalacer
+
+x-build: &default-build
+  context: .
+  dockerfile: Dockerfile
+
+services:
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 2s
+      retries: 10
+    networks:
+      - management
+      - worker1-net
+      - worker2-net
+
+  tcp-lb-gateway:
+    image: tcp-loadbalacer/tcp-lb-gateway:latest
+    build:
+      <<: *default-build
+      args:
+        SERVICE: tcp-lb-gateway
+    user: root
+    cap_add:
+      - NET_ADMIN
+    sysctls:
+      net.ipv4.ip_forward: "1"
+    environment:
+      PORT_MAPPINGS: 1000-1010=tcp-backend-worker1@10.10.0.0/24,2000-2010=tcp-backend-worker2@10.20.0.0/24
+      SERVER_CIDR: 10.30.0.0/24
+      GATEWAY_SERVER_IP: 10.30.0.254
+      REDIS_ADDR: redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    networks:
+      management:
+        ipv4_address: 10.40.0.254
+        aliases: [gateway-health]
+      worker1-net:
+        ipv4_address: 10.10.0.254
+      worker2-net:
+        ipv4_address: 10.20.0.254
+      server-net:
+        ipv4_address: 10.30.0.254
+
+  tcp-server-emu:
+    image: tcp-loadbalacer/tcp-server-emu:latest
+    build:
+      <<: *default-build
+      args:
+        SERVICE: tcp-server-emu
+    depends_on:
+      tcp-lb-gateway:
+        condition: service_started
+    expose: ["9000"]
+    networks:
+      server-net:
+        ipv4_address: 10.30.0.10
+
+  tcp-backend-worker1:
+    image: tcp-loadbalacer/tcp-backend-worker:latest
+    build:
+      <<: *default-build
+      args:
+        SERVICE: tcp-backend-worker
+    user: root
+    cap_add:
+      - NET_ADMIN
+      - NET_BIND_SERVICE
+    environment:
+      WORKER_NAME: tcp-backend-worker1
+      SOURCE_PORT_RANGE: 1000-1010
+      REMOTE_ADDR: 10.30.0.10:9000
+      STATIC_ROUTES: 10.30.0.0/24=10.10.0.254
+      CONNECT_INTERVAL: 3s
+      SESSION_DURATION: 5s
+      REDIS_ADDR: redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+      tcp-lb-gateway:
+        condition: service_started
+      tcp-server-emu:
+        condition: service_started
+    expose: ["8080"]
+    networks:
+      - worker1-net
+
+  tcp-backend-worker2:
+    image: tcp-loadbalacer/tcp-backend-worker:latest
+    pull_policy: never
+    user: root
+    cap_add:
+      - NET_ADMIN
+      - NET_BIND_SERVICE
+    environment:
+      WORKER_NAME: tcp-backend-worker2
+      SOURCE_PORT_RANGE: 2000-2010
+      REMOTE_ADDR: 10.30.0.10:9000
+      STATIC_ROUTES: 10.30.0.0/24=10.20.0.254
+      CONNECT_INTERVAL: 3s
+      SESSION_DURATION: 5s
+      REDIS_ADDR: redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+      tcp-lb-gateway:
+        condition: service_started
+      tcp-server-emu:
+        condition: service_started
+    expose: ["8080"]
+    networks:
+      - worker2-net
+
+  pod-state-manager:
+    image: tcp-loadbalacer/pod-state-manager:latest
+    build:
+      <<: *default-build
+      args:
+        SERVICE: pod-state-manager
+    environment:
+      REDIS_ADDR: redis:6379
+      POLL_INTERVAL: 5s
+      MANAGED_SERVICES: tcp-lb-gateway=gateway-health:8080,tcp-backend-worker1=tcp-backend-worker1:8080,tcp-backend-worker2=tcp-backend-worker2:8080
+    depends_on:
+      redis:
+        condition: service_healthy
+      tcp-lb-gateway:
+        condition: service_started
+      tcp-backend-worker1:
+        condition: service_started
+      tcp-backend-worker2:
+        condition: service_started
+    networks:
+      - management
+      - worker1-net
+      - worker2-net
+
+volumes:
+  redis-data:
+
+networks:
+  management:
+    ipam:
+      config:
+        - subnet: 10.40.0.0/24
+  worker1-net:
+    ipam:
+      config:
+        - subnet: 10.10.0.0/24
+  worker2-net:
+    ipam:
+      config:
+        - subnet: 10.20.0.0/24
+  server-net:
+    ipam:
+      config:
+        - subnet: 10.30.0.0/24
