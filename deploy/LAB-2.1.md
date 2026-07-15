@@ -1,26 +1,26 @@
-# Lab 2.1 — Rolling Update & Rollback
+# Bài thực hành 2.1 — Cập nhật cuốn chiếu và quay lui
 
-The lab creates a separate three-replica Deployment in `tcp-lb-mini`, using the
-project worker's `/healthz` endpoint to expose the version in `service`. It does not modify the
-live gateway, server, or worker Deployments.
+Bài thực hành tạo một Deployment riêng gồm ba bản sao trong `tcp-lb-mini`, sử dụng
+điểm cuối `/healthz` của worker trong dự án để hiển thị phiên bản qua trường `service`.
+Bài thực hành không sửa đổi các Deployment gateway, máy chủ hoặc worker đang chạy.
 
-## Automated run
+## Chạy tự động
 
-From the project root:
+Từ thư mục gốc của dự án:
 
 ```bash
 sh scripts/lab-2.1.sh
 ```
 
-The script performs and monitors these stages:
+Kịch bản thực hiện và theo dõi các giai đoạn sau:
 
-1. Deploy `v1` and wait until all three replicas are available.
-2. Roll to `v2` with `maxSurge: 1` and `maxUnavailable: 1`.
-3. Deploy `bad`, whose container exits immediately.
-4. Observe the expected rollout timeout while old `v2` Pods remain available.
-5. Run `kubectl rollout undo` and wait for a healthy rollback.
+1. Triển khai `v1` và chờ cho tới khi cả ba bản sao đều sẵn sàng.
+2. Cập nhật cuốn chiếu lên `v2` với `maxSurge: 1` và `maxUnavailable: 1`.
+3. Triển khai `bad`, có container thoát ngay lập tức.
+4. Quan sát đợt triển khai hết thời gian chờ như dự kiến trong khi các Pod `v2` cũ vẫn sẵn sàng.
+5. Chạy `kubectl rollout undo` và chờ quá trình quay lui hoàn tất bình thường.
 
-## Useful CKAD commands
+## Các lệnh CKAD hữu ích
 
 ```bash
 kubectl -n tcp-lb-mini rollout status deployment/tcp-lb-rollout-demo
@@ -30,23 +30,23 @@ kubectl -n tcp-lb-mini describe deployment tcp-lb-rollout-demo
 kubectl -n tcp-lb-mini rollout undo deployment/tcp-lb-rollout-demo
 ```
 
-Verify the version served after rollback:
+Xác minh phiên bản được phục vụ sau khi quay lui:
 
 ```bash
 kubectl -n tcp-lb-mini exec deployment/redis -- \
   wget -qO- http://tcp-lb-rollout-demo:8080/healthz
 ```
 
-Expected JSON contains `"service":"rollout-demo-v2"`.
+Kết quả JSON dự kiến chứa `"service":"rollout-demo-v2"`.
 
-## Why traffic remains available
+## Vì sao lưu lượng vẫn được phục vụ
 
-The rolling strategy permits one extra Pod (`maxSurge: 1`) and at most one
-unavailable desired replica (`maxUnavailable: 1`). A bad new Pod never becomes
-Ready, so Kubernetes does not remove every healthy `v2` Pod. Rollback restores
-the previous ReplicaSet template.
+Chiến lược cập nhật cuốn chiếu cho phép thêm một Pod (`maxSurge: 1`) và có tối đa
+một bản sao mong muốn không sẵn sàng (`maxUnavailable: 1`). Pod mới bị lỗi không
+bao giờ chuyển sang trạng thái Ready, vì vậy Kubernetes không xóa toàn bộ Pod `v2`
+đang hoạt động bình thường. Quá trình quay lui khôi phục mẫu ReplicaSet trước đó.
 
-## Cleanup
+## Dọn dẹp
 
 ```bash
 kubectl delete -f deploy/lab-2.1-rolling-update.yaml

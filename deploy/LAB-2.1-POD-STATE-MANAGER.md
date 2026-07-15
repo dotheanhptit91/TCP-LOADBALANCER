@@ -1,21 +1,21 @@
-# Lab 2.1 — Rolling Update & Rollback: pod-state-manager
+# Bài thực hành 2.1 — Cập nhật cuốn chiếu và quay lui: pod-state-manager
 
-This version of Lab 2.1 operates on the real `pod-state-manager` Deployment in
-the `tcp-lb-mini` namespace.
+Phiên bản Bài thực hành 2.1 này thao tác trên Deployment `pod-state-manager`
+thực tế trong namespace `tcp-lb-mini`.
 
 ```bash
 sh scripts/lab-2.1-pod-state-manager.sh
 ```
 
-The script performs the following operations:
+Kịch bản thực hiện các thao tác sau:
 
-1. Configures `maxSurge: 1`, `maxUnavailable: 0`, and `minReadySeconds: 5` for zero downtime with one replica.
-2. Rolls `pod-state-manager:v1` to `pod-state-manager:v2`.
-3. Deploys `pod-state-manager:bad` with `POLL_INTERVAL=not-a-duration`.
-4. Confirms the bad Pod crashes while the previous `v2` Pod stays available.
-5. Runs `kubectl rollout undo` and verifies that state updates continue.
+1. Cấu hình `maxSurge: 1`, `maxUnavailable: 0` và `minReadySeconds: 5` để không có thời gian gián đoạn với một bản sao.
+2. Cập nhật cuốn chiếu từ `pod-state-manager:v1` lên `pod-state-manager:v2`.
+3. Triển khai `pod-state-manager:bad` với `POLL_INTERVAL=not-a-duration`.
+4. Xác nhận Pod lỗi bị dừng trong khi Pod `v2` trước đó vẫn sẵn sàng phục vụ.
+5. Chạy `kubectl rollout undo` và xác minh quá trình cập nhật trạng thái vẫn tiếp tục.
 
-Monitor the rollout in another terminal:
+Theo dõi đợt triển khai trong một terminal khác:
 
 ```bash
 kubectl -n tcp-lb-mini rollout status deployment/pod-state-manager
@@ -24,13 +24,14 @@ kubectl -n tcp-lb-mini get rs,pods -l app=pod-state-manager \
 kubectl -n tcp-lb-mini rollout history deployment/pod-state-manager
 ```
 
-The simulated failure is an application configuration error, not an image-pull
-failure, so its log clearly shows:
+Lỗi mô phỏng là lỗi cấu hình ứng dụng, không phải lỗi kéo image, vì vậy nhật ký
+hiển thị rõ:
 
 ```text
 invalid poll interval
 ```
 
-`minReadySeconds` matters here because `pod-state-manager` has no HTTP
-readiness endpoint. Without it, a fast-crashing container can briefly become
-Ready and let Kubernetes consider the bad rollout successful before it exits.
+`minReadySeconds` rất quan trọng ở đây vì `pod-state-manager` không có điểm cuối
+HTTP kiểm tra mức độ sẵn sàng. Nếu thiếu thuộc tính này, một container bị lỗi
+nhanh có thể chuyển sang trạng thái Ready trong chốc lát, khiến Kubernetes coi
+đợt triển khai lỗi là thành công trước khi container thoát.

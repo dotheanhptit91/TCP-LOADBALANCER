@@ -1,59 +1,59 @@
-# TCP routed load-balancing mini-project
+# Dự án nhỏ cân bằng tải TCP bằng định tuyến
 
-Đây là data plane TCP L3/L4 trong đó `tcp-backend-worker` là **client** và `tcp-server-emu` là **server**. Gateway không terminate TCP và không tạo connection thứ hai.
+Đây là mặt phẳng dữ liệu TCP L3/L4, trong đó `tcp-backend-worker` là **máy khách** và `tcp-server-emu` là **máy chủ**. Gateway không kết thúc kết nối TCP và không tạo kết nối thứ hai.
 
-## Packet flow
+## Luồng gói tin
 
 ```text
-worker1 10.10.0.x:1000-1010                 server 10.30.0.10:9000
+worker1 10.10.0.x:1000-1010                 máy chủ 10.30.0.10:9000
 worker2 10.20.0.x:2000-2010                 ┌─────────────────────┐
 ┌──────────────────────────┐                │   tcp-server-emu    │
-│ tcp-backend-worker client│                └──────────▲──────────┘
+│ tcp-backend-worker       │                └──────────▲──────────┘
 └────────────┬─────────────┘                           │
-             │ SYN: original worker IP/port            │ SYN: src=10.30.0.254
+             │ SYN: IP/cổng gốc của worker             │ SYN: nguồn=10.30.0.254
              ▼                                        │
         ┌──────────────────────────────────────────────┘
-        │ tcp-lb-gateway: routing + nftables SNAT + conntrack
+        │ tcp-lb-gateway: định tuyến + nftables SNAT + conntrack
         └──────────────────────────────────────────────┐
              ▲                                        │
-             │ reverse NAT về worker                   │ SYN-ACK tới 10.30.0.254
+             │ NAT ngược về worker                     │ SYN-ACK tới 10.30.0.254
              └────────────────────────────────────────┘
 ```
 
-Gateway áp dụng ba rule cho mỗi worker group:
+Gateway áp dụng ba quy tắc cho mỗi nhóm worker:
 
-- Worker → server: kiểm tra source CIDR và `tcp sport` thuộc range được cấp.
-- Server → worker: kiểm tra destination CIDR, `tcp dport` thuộc range và conntrack state là `ESTABLISHED`.
-- Postrouting: SNAT source IP của worker thành `GATEWAY_SERVER_IP`, đồng thời giữ source port trong range nếu tuple chưa bị trùng.
+- Worker → máy chủ: kiểm tra CIDR nguồn và `tcp sport` thuộc dải được cấp.
+- Máy chủ → worker: kiểm tra CIDR đích, `tcp dport` thuộc dải và trạng thái conntrack là `ESTABLISHED`.
+- Hậu định tuyến: SNAT địa chỉ IP nguồn của worker thành `GATEWAY_SERVER_IP`, đồng thời giữ cổng nguồn trong dải nếu bộ giá trị kết nối chưa bị trùng.
 
-Server chỉ nhìn thấy IP phía server của gateway (`10.30.0.254`). Linux conntrack giữ mapping để SYN-ACK quay lại đúng worker. XDP/eBPF chưa cần ở quy mô demo này.
+Máy chủ chỉ nhìn thấy địa chỉ IP phía máy chủ của gateway (`10.30.0.254`). Conntrack của Linux lưu ánh xạ để SYN-ACK quay lại đúng worker. XDP/eBPF chưa cần thiết ở quy mô minh họa này.
 
 ## Thành phần
 
-- `tcp-backend-worker`: định kỳ chọn source port ngẫu nhiên, gửi TCP SYN và kiểm tra echo end-to-end.
-- `tcp-lb-gateway`: Go control plane cài nftables rules, đọc conntrack và ghi mapping vào Redis.
-- `tcp-server-emu`: TCP echo server, log gateway IP và source port đã được SNAT.
-- `pod-state-manager`: khám phá replica qua DNS, đọc `/healthz` và lưu state vào Redis.
-- Redis: `lb:port_mappings`, health, active/successful connection và instance state.
+- `tcp-backend-worker`: định kỳ chọn cổng nguồn ngẫu nhiên, gửi TCP SYN và kiểm tra phản hồi echo xuyên suốt.
+- `tcp-lb-gateway`: mặt phẳng điều khiển viết bằng Go, cài đặt các quy tắc nftables, đọc conntrack và ghi ánh xạ vào Redis.
+- `tcp-server-emu`: máy chủ TCP echo, ghi nhật ký địa chỉ IP gateway và cổng nguồn đã được SNAT.
+- `pod-state-manager`: khám phá các bản sao qua DNS, đọc `/healthz` và lưu trạng thái vào Redis.
+- Redis: lưu `lb:port_mappings`, tình trạng hoạt động, các kết nối đang hoạt động/thành công và trạng thái của từng phiên bản.
 
-`internal/proxy` đã được bỏ vì gateway không còn là user-space TCP proxy.
+`internal/proxy` đã được loại bỏ vì gateway không còn là proxy TCP ở không gian người dùng.
 
 ## Chạy bằng Docker Compose
 
-Gateway và endpoint cần capability `NET_ADMIN`; worker cần thêm `NET_BIND_SERVICE` vì range 1000 nằm dưới 1024. Compose đã cấu hình các capability này.
+Gateway và điểm cuối cần capability `NET_ADMIN`; worker cần thêm `NET_BIND_SERVICE` vì dải cổng bắt đầu từ 1000, thấp hơn 1024. Compose đã cấu hình các capability này.
 
 ```bash
 docker compose up --build -d
 ./scripts/smoke-test.sh
 ```
 
-Smoke test kiểm tra:
+Bài kiểm tra nhanh xác minh:
 
-1. Cả hai worker tạo được TCP session và nhận đúng echo.
-2. nftables counter tăng cho cả outbound và return path.
-3. Server nhìn thấy `10.30.0.254` và source port đúng range, không nhìn thấy worker IP.
+1. Cả hai worker tạo được phiên TCP và nhận đúng phản hồi echo.
+2. Bộ đếm nftables tăng trên cả đường đi và đường về.
+3. Máy chủ nhìn thấy `10.30.0.254` và cổng nguồn nằm đúng dải, nhưng không nhìn thấy địa chỉ IP của worker.
 
-Xem data plane và connection state:
+Xem mặt phẳng dữ liệu và trạng thái kết nối:
 
 ```bash
 docker compose exec tcp-lb-gateway nft list table inet tcp_lb
@@ -62,16 +62,16 @@ curl http://127.0.0.1:8080/healthz
 make redis-state
 ```
 
-Capture SYN/SYN-ACK trực tiếp tại gateway:
+Bắt gói SYN/SYN-ACK trực tiếp tại gateway:
 
 ```bash
 docker compose exec tcp-lb-gateway \
   timeout 10 tcpdump -n -i any 'tcp port 9000 and (tcp[tcpflags] & (tcp-syn|tcp-ack) != 0)'
 ```
 
-Worker tự tạo connection mỗi 3 giây nên capture sẽ có traffic mà không cần client ngoài.
+Worker tự tạo kết nối mỗi 3 giây nên bản ghi bắt gói sẽ có lưu lượng mà không cần máy khách bên ngoài.
 
-Scale worker:
+Thay đổi số lượng worker:
 
 ```bash
 docker compose up -d \
@@ -79,48 +79,48 @@ docker compose up -d \
   --scale tcp-backend-worker2=2
 ```
 
-Lưu ý: sau SNAT, các replica trong cùng group dùng chung một gateway IP. Để luôn giữ nguyên source port, tổng số connection đồng thời tới cùng server tuple của một group không được vượt số port trong range (11). Scale lớn cần cấp thêm SNAT IP hoặc chia nhỏ port range theo replica.
+Lưu ý: sau SNAT, các bản sao trong cùng một nhóm dùng chung địa chỉ IP gateway. Để luôn giữ nguyên cổng nguồn, tổng số kết nối đồng thời tới cùng một bộ giá trị máy chủ của một nhóm không được vượt quá số cổng trong dải (11). Khi tăng quy mô lớn, cần cấp thêm địa chỉ IP SNAT hoặc chia nhỏ dải cổng theo từng bản sao.
 
-## Network topology của Compose
+## Cấu trúc liên kết mạng của Compose
 
-| Network | CIDR | Gateway data-plane IP |
+| Mạng | CIDR | IP mặt phẳng dữ liệu của gateway |
 |---|---:|---:|
 | worker1-net | `10.10.0.0/24` | `10.10.0.254` |
 | worker2-net | `10.20.0.0/24` | `10.20.0.254` |
 | server-net | `10.30.0.0/24` | `10.30.0.254` |
 | management | `10.40.0.0/24` | `10.40.0.254` |
 
-Worker có static route tới `10.30.0.0/24` qua gateway. Server trả lời trực tiếp tới `10.30.0.254`; gateway dùng conntrack reverse NAT để chuyển về worker. Vì worker và server không cùng Docker network, không có đường bypass gateway.
+Worker có tuyến tĩnh tới `10.30.0.0/24` qua gateway. Máy chủ trả lời trực tiếp tới `10.30.0.254`; gateway dùng NAT ngược của conntrack để chuyển về worker. Vì worker và máy chủ không nằm trong cùng một mạng Docker nên không có đường đi vòng qua gateway.
 
 ## Kubernetes
 
-Transparent multi-homed routing cần CNI cung cấp nhiều interface. Manifest `deploy/kubernetes.yaml` dùng Multus bridge networks và phù hợp cho single-node demo.
+Định tuyến trong suốt với nhiều kết nối mạng yêu cầu CNI cung cấp nhiều giao diện mạng. Manifest `deploy/kubernetes.yaml` sử dụng các mạng bridge của Multus và phù hợp với môi trường minh họa một node.
 
-Manifest cũng có `kind-secondary-network-setup` DaemonSet để loại ba secondary CIDR khỏi `KIND-MASQ-AGENT`; nếu thiếu rule này, Kind sẽ SNAT source IP của worker trước khi packet tới gateway.
+Manifest cũng có DaemonSet `kind-secondary-network-setup` để loại trừ ba CIDR phụ khỏi `KIND-MASQ-AGENT`; nếu thiếu quy tắc này, Kind sẽ SNAT địa chỉ IP nguồn của worker trước khi gói tin tới gateway.
 
-Các Pod data-plane có watchdog cho interface Multus. Sau khi host/Kind reboot, nếu network namespace cũ bị mất interface secondary, watchdog dùng ServiceAccount `data-plane-self-healer` để xóa chính Pod đó. Deployment sẽ tạo Pod mới và Multus thực hiện lại CNI ADD; không cần rollout restart thủ công.
+Các Pod thuộc mặt phẳng dữ liệu có tiến trình giám sát giao diện Multus. Sau khi máy chủ/Kind khởi động lại, nếu không gian tên mạng cũ bị mất giao diện phụ, tiến trình giám sát dùng ServiceAccount `data-plane-self-healer` để xóa chính Pod đó. Deployment sẽ tạo Pod mới và Multus thực hiện lại thao tác CNI ADD; không cần khởi động lại đợt triển khai theo cách thủ công.
 
 Chuẩn bị:
 
 ```bash
-# Cài Multus CNI trước, sau đó chọn một node chạy toàn bộ data plane:
+# Cài đặt Multus CNI trước, sau đó chọn một node chạy toàn bộ mặt phẳng dữ liệu:
 kubectl label node <node-name> tcp-lb-role=dataplane
 kubectl apply -f deploy/kubernetes.yaml
 ```
 
-Với production multi-node, thay Multus bridge bằng underlay/overlay CNI hỗ trợ route giữa node (ví dụ macvlan/ipvlan hoặc CNI eBPF phù hợp). Không dùng manifest proxy cũ vì nó sẽ terminate TCP tại gateway.
+Với môi trường sản xuất nhiều node, hãy thay bridge Multus bằng CNI underlay/overlay hỗ trợ định tuyến giữa các node (ví dụ macvlan/ipvlan hoặc CNI eBPF phù hợp). Không dùng manifest proxy cũ vì nó sẽ kết thúc kết nối TCP tại gateway.
 
 ## Cấu hình chính
 
-| Service | Biến | Ví dụ |
+| Dịch vụ | Biến | Ví dụ |
 |---|---|---|
 | gateway | `PORT_MAPPINGS` | `1000-1010=worker1@10.10.0.0/24` |
 | gateway | `SERVER_CIDR` | `10.30.0.0/24` |
 | gateway | `GATEWAY_SERVER_IP` | `10.30.0.254` |
 | worker | `SOURCE_PORT_RANGE` | `1000-1010` |
 | worker | `REMOTE_ADDR` | `10.30.0.10:9000` |
-| worker/server | `STATIC_ROUTES` | `10.30.0.0/24=10.10.0.254` |
+| worker/máy chủ | `STATIC_ROUTES` | `10.30.0.0/24=10.10.0.254` |
 | worker | `CONNECT_INTERVAL` | `3s` |
 | worker | `SESSION_DURATION` | `5s` |
 
-Worker group `n` dùng range `n000-n010`, ví dụ worker3 dùng `3000-3010`. Để thêm group, cấp một worker subnet không overlap, thêm interface gateway, route worker và một entry mới trong `PORT_MAPPINGS`.
+Nhóm worker `n` dùng dải `n000-n010`; ví dụ worker3 dùng `3000-3010`. Để thêm nhóm, hãy cấp một mạng con worker không chồng lấn, thêm giao diện gateway, tuyến worker và một mục mới trong `PORT_MAPPINGS`.

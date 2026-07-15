@@ -1,9 +1,9 @@
-# Lab 1.3 — Jobs & CronJobs
+# Bài thực hành 1.3 — Job và CronJob
 
-This lab runs against the `tcp-lb-mini` namespace and uses the existing TCP
-load-balancer health endpoints.
+Bài thực hành này chạy trong namespace `tcp-lb-mini` và sử dụng các điểm cuối
+kiểm tra tình trạng hoạt động hiện có của bộ cân bằng tải TCP.
 
-## Run the lab
+## Chạy bài thực hành
 
 ```bash
 kubectl apply -f deploy/lab-1.3-jobs.yaml
@@ -15,7 +15,7 @@ kubectl -n tcp-lb-mini get cronjob tcp-lb-health-check
 kubectl -n tcp-lb-mini get jobs --watch
 ```
 
-The CronJob runs every minute. Inspect the Jobs and their owner:
+CronJob chạy mỗi phút. Kiểm tra các Job và tài nguyên sở hữu chúng:
 
 ```bash
 kubectl -n tcp-lb-mini get jobs -l app=tcp-lb-health-check
@@ -24,26 +24,26 @@ kubectl -n tcp-lb-mini get job -l app=tcp-lb-health-check \
 kubectl -n tcp-lb-mini get pods -l app=tcp-lb-health-check
 ```
 
-Verify the timestamps written to Redis:
+Xác minh các dấu thời gian được ghi vào Redis:
 
 ```bash
 kubectl -n tcp-lb-mini exec deployment/redis -- \
   redis-cli MGET lab:job:last_success lab:cronjob:last_success
 ```
 
-## Job, CronJob, and Deployment
+## Job, CronJob và Deployment
 
-| Resource | Desired state | Pod behavior | Typical use |
+| Tài nguyên | Trạng thái mong muốn | Hành vi của Pod | Mục đích sử dụng phổ biến |
 |---|---|---|---|
-| Job | A fixed number of successful completions | Stops after success; retries failures up to `backoffLimit` | Migration, batch processing, one-off validation |
-| CronJob | Create Jobs according to `schedule` | Each scheduled Job runs to completion | Backup, report, periodic health audit |
-| Deployment | Keep a requested number of Pods continuously running | Replaces Pods indefinitely; has no completion state | API server, worker service, long-running daemon |
+| Job | Một số lượng lần hoàn thành thành công cố định | Dừng sau khi thành công; thử lại khi thất bại tối đa theo `backoffLimit` | Di chuyển dữ liệu, xử lý hàng loạt, xác minh một lần |
+| CronJob | Tạo các Job theo `schedule` | Mỗi Job được lên lịch sẽ chạy cho tới khi hoàn thành | Sao lưu, báo cáo, kiểm tra tình trạng định kỳ |
+| Deployment | Duy trì liên tục số lượng Pod được yêu cầu | Thay thế Pod không giới hạn; không có trạng thái hoàn thành | Máy chủ API, dịch vụ worker, tiến trình nền chạy lâu dài |
 
-`restartPolicy: Never` controls whether kubelet restarts the container in the
-same Pod. `backoffLimit` controls how many failed Pods the Job controller
-allows before the Job itself is marked failed.
+`restartPolicy: Never` kiểm soát việc kubelet có khởi động lại container trong
+cùng một Pod hay không. `backoffLimit` kiểm soát số Pod được phép thất bại trước
+khi bộ điều khiển Job đánh dấu chính Job đó là thất bại.
 
-## Cleanup
+## Dọn dẹp
 
 ```bash
 kubectl delete -f deploy/lab-1.3-jobs.yaml
