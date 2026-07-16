@@ -2,7 +2,8 @@
 set -eu
 
 namespace="${NAMESPACE:-tcp-lb-mini}"
-manifest="deploy/labs/1.4/pods.yaml"
+script_dir="$(CDPATH= cd "$(dirname "$0")" && pwd)"
+manifest="$script_dir/pods.yaml"
 
 echo "==> Removing previous Lab 1.4 Pods"
 kubectl -n "$namespace" delete pods -l lab=1.4 --ignore-not-found --wait=true

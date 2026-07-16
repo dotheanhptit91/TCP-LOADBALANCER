@@ -4,6 +4,8 @@ set -eu
 namespace="${NAMESPACE:-tcp-lb-mini}"
 deployment="tcp-lb-rollout-demo"
 source_image="${SOURCE_IMAGE:-tcp-lb-mini/tcp-backend-worker:latest}"
+script_dir="$(CDPATH= cd "$(dirname "$0")" && pwd)"
+manifest="$script_dir/rolling-update.yaml"
 
 echo "==> Preparing local v1, v2, and bad image tags"
 for version in v1 v2 bad; do
@@ -15,7 +17,7 @@ kind load docker-image --name kind \
   tcp-lb-mini/tcp-backend-worker:bad
 
 echo "==> Deploying v1"
-kubectl apply -f deploy/labs/2.1/rolling-update.yaml
+kubectl apply -f "$manifest"
 kubectl -n "$namespace" rollout status "deployment/$deployment" --timeout=120s
 kubectl -n "$namespace" get pods -l app="$deployment" -L lab.tcp-lb/version
 

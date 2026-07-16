@@ -3,6 +3,9 @@ set -eu
 
 namespace="${NAMESPACE:-tcp-lb-mini}"
 deployment="pod-state-manager-hpa"
+script_dir="$(CDPATH= cd "$(dirname "$0")" && pwd)"
+deployment_manifest="$script_dir/deployment.yaml"
+hpa_manifest="$script_dir/hpa.yaml"
 
 if ! kubectl top nodes >/dev/null 2>&1; then
   echo "==> Installing Metrics Server v0.8.1"
@@ -21,14 +24,14 @@ if ! kubectl top nodes >/dev/null 2>&1; then
 fi
 
 echo "==> Manually scaling pod-state-manager to 10 replicas"
-kubectl apply -f deploy/labs/2.3/deployment.yaml
+kubectl apply -f "$deployment_manifest"
 kubectl -n "$namespace" scale "deployment/$deployment" --replicas=10
 kubectl -n "$namespace" rollout status "deployment/$deployment" --timeout=180s
 kubectl -n "$namespace" get "deployment/$deployment"
 test "$(kubectl -n "$namespace" get "deployment/$deployment" -o jsonpath='{.status.readyReplicas}')" = "10"
 
 echo "==> Configuring HPA with a 50% CPU target"
-kubectl apply -f deploy/labs/2.3/hpa.yaml
+kubectl apply -f "$hpa_manifest"
 i=0
 until [ -n "$(kubectl -n "$namespace" get hpa "$deployment" -o jsonpath='{.status.currentMetrics[0].resource.current.averageUtilization}' 2>/dev/null)" ]; do
   i=$((i + 1))

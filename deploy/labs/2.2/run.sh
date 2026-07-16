@@ -3,8 +3,10 @@ set -eu
 
 namespace="${NAMESPACE:-tcp-lb-mini}"
 service="pod-state-manager-active"
+script_dir="$(CDPATH= cd "$(dirname "$0")" && pwd)"
+manifest="$script_dir/blue-green.yaml"
 
-kubectl apply -f deploy/labs/2.2/blue-green.yaml
+kubectl apply -f "$manifest"
 kubectl -n "$namespace" rollout status deployment/pod-state-manager-blue --timeout=120s
 kubectl -n "$namespace" rollout status deployment/pod-state-manager-green --timeout=120s
 

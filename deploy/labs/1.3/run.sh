@@ -2,7 +2,8 @@
 set -eu
 
 namespace="${NAMESPACE:-tcp-lb-mini}"
-manifest="deploy/labs/1.3/jobs.yaml"
+script_dir="$(CDPATH= cd "$(dirname "$0")" && pwd)"
+manifest="$script_dir/jobs.yaml"
 
 echo "==> Removing the previous one-off Job"
 kubectl -n "$namespace" delete job tcp-lb-one-off-check --ignore-not-found --wait=true

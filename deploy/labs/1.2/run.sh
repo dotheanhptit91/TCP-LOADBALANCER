@@ -3,7 +3,8 @@ set -eu
 
 namespace="${NAMESPACE:-tcp-lb-mini}"
 pod="tcp-lb-init-sidecar"
-manifest="deploy/labs/1.2/pod.yaml"
+script_dir="$(CDPATH= cd "$(dirname "$0")" && pwd)"
+manifest="$script_dir/pod.yaml"
 
 echo "==> Removing the previous Lab 1.2 Pod"
 kubectl -n "$namespace" delete pod "$pod" --ignore-not-found --wait=true

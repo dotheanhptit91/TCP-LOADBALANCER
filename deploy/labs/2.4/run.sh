@@ -2,8 +2,9 @@
 set -eu
 
 namespace="${NAMESPACE:-tcp-lb-mini}"
-overlay="deploy/labs/2.4/kustomize/overlays/lab"
 deployment="pod-state-manager-kustomize"
+script_dir="$(CDPATH= cd "$(dirname "$0")" && pwd)"
+overlay="$script_dir/kustomize/overlays/lab"
 
 echo "==> Rendering overlay"
 rendered="$(kubectl kustomize "$overlay")"
