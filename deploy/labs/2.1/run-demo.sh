@@ -15,7 +15,7 @@ kind load docker-image --name kind \
   tcp-lb-mini/tcp-backend-worker:bad
 
 echo "==> Deploying v1"
-kubectl apply -f deploy/lab-2.1-rolling-update.yaml
+kubectl apply -f deploy/labs/2.1/rolling-update.yaml
 kubectl -n "$namespace" rollout status "deployment/$deployment" --timeout=120s
 kubectl -n "$namespace" get pods -l app="$deployment" -L lab.tcp-lb/version
 

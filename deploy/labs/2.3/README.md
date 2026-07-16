@@ -64,16 +64,16 @@ nên dùng làm cấu hình mặc định trong môi trường sản xuất.
 Từ thư mục gốc của dự án:
 
 ```bash
-sh scripts/lab-2.3.sh
+sh deploy/labs/2.3/run.sh
 ```
 
 Kịch bản sẽ:
 
 1. Kiểm tra `kubectl top nodes`.
 2. Cài và chờ Metrics Server nếu Metrics API chưa sẵn sàng.
-3. Áp dụng Deployment từ `deploy/labs/2.3-scale-deployment.yaml`.
+3. Áp dụng Deployment từ `deploy/labs/2.3/deployment.yaml`.
 4. Tăng thủ công Deployment lên 10 replica và xác minh cả 10 replica đều Ready.
-5. Áp dụng HPA từ `deploy/labs/2.3-hpa.yaml` với mục tiêu CPU 50%.
+5. Áp dụng HPA từ `deploy/labs/2.3/hpa.yaml` với mục tiêu CPU 50%.
 6. Chờ HPA nhận được CPU metrics rồi hiển thị HPA và CPU của từng Pod.
 
 ## Phần 1 — Thay đổi quy mô thủ công
@@ -81,7 +81,7 @@ Kịch bản sẽ:
 Tạo Deployment:
 
 ```bash
-kubectl apply -f deploy/labs/2.3-scale-deployment.yaml
+kubectl apply -f deploy/labs/2.3/deployment.yaml
 kubectl -n tcp-lb-mini rollout status deployment/pod-state-manager-hpa
 ```
 
@@ -101,7 +101,7 @@ sau đó tạo thêm Pod cho tới khi trạng thái thực tế khớp với tr
 Tạo HPA:
 
 ```bash
-kubectl apply -f deploy/labs/2.3-hpa.yaml
+kubectl apply -f deploy/labs/2.3/hpa.yaml
 kubectl -n tcp-lb-mini get hpa pod-state-manager-hpa
 ```
 
@@ -153,4 +153,3 @@ kubectl -n tcp-lb-mini delete deployment pod-state-manager-hpa
 
 Metrics Server là thành phần dùng chung của cluster nên bài thực hành không tự
 động xóa thành phần này.
-

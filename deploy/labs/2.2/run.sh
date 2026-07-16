@@ -4,7 +4,7 @@ set -eu
 namespace="${NAMESPACE:-tcp-lb-mini}"
 service="pod-state-manager-active"
 
-kubectl apply -f deploy/labs/2.2-blue-green.yaml
+kubectl apply -f deploy/labs/2.2/blue-green.yaml
 kubectl -n "$namespace" rollout status deployment/pod-state-manager-blue --timeout=120s
 kubectl -n "$namespace" rollout status deployment/pod-state-manager-green --timeout=120s
 

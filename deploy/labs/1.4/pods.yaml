@@ -1,0 +1,83 @@
+apiVersion: v1
+kind: List
+items:
+  - apiVersion: v1
+    kind: Pod
+    metadata:
+      name: label-drill-1
+      namespace: tcp-lb-mini
+      labels: {app: tcp-lb-label-drill, lab: "1.4", environment: dev, track: canary}
+      annotations:
+        lab.tcp-lb/purpose: selector-practice
+        lab.tcp-lb/owner: ckad
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: sleeper
+          image: tcp-lb-mini/pod-state-manager:v2
+          imagePullPolicy: Never
+          command: ["/bin/sh", "-c", "sleep 3600"]
+  - apiVersion: v1
+    kind: Pod
+    metadata:
+      name: label-drill-2
+      namespace: tcp-lb-mini
+      labels: {app: tcp-lb-label-drill, lab: "1.4", environment: dev, track: canary}
+      annotations:
+        lab.tcp-lb/purpose: selector-practice
+        lab.tcp-lb/owner: ckad
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: sleeper
+          image: tcp-lb-mini/pod-state-manager:v2
+          imagePullPolicy: Never
+          command: ["/bin/sh", "-c", "sleep 3600"]
+  - apiVersion: v1
+    kind: Pod
+    metadata:
+      name: label-drill-3
+      namespace: tcp-lb-mini
+      labels: {app: tcp-lb-label-drill, lab: "1.4", environment: staging, track: stable}
+      annotations:
+        lab.tcp-lb/purpose: selector-practice
+        lab.tcp-lb/owner: ckad
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: sleeper
+          image: tcp-lb-mini/pod-state-manager:v2
+          imagePullPolicy: Never
+          command: ["/bin/sh", "-c", "sleep 3600"]
+  - apiVersion: v1
+    kind: Pod
+    metadata:
+      name: label-drill-4
+      namespace: tcp-lb-mini
+      labels: {app: tcp-lb-label-drill, lab: "1.4", environment: staging, track: stable}
+      annotations:
+        lab.tcp-lb/purpose: selector-practice
+        lab.tcp-lb/owner: ckad
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: sleeper
+          image: tcp-lb-mini/pod-state-manager:v2
+          imagePullPolicy: Never
+          command: ["/bin/sh", "-c", "sleep 3600"]
+  - apiVersion: v1
+    kind: Pod
+    metadata:
+      name: label-drill-5
+      namespace: tcp-lb-mini
+      labels: {app: tcp-lb-label-drill, lab: "1.4", environment: prod, track: stable}
+      annotations:
+        lab.tcp-lb/purpose: selector-practice
+        lab.tcp-lb/owner: ckad
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: sleeper
+          image: tcp-lb-mini/pod-state-manager:v2
+          imagePullPolicy: Never
+          command: ["/bin/sh", "-c", "sleep 3600"]

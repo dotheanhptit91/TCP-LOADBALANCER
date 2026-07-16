@@ -1,0 +1,71 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: tcp-lb-init-sidecar
+  namespace: tcp-lb-mini
+  labels:
+    app: tcp-lb-init-sidecar
+    component: pod-state-manager
+    lab: "1.2"
+spec:
+  restartPolicy: Always
+  volumes:
+    - name: shared-data
+      emptyDir: {}
+  initContainers:
+    - name: init-config
+      image: tcp-lb-mini/pod-state-manager:v2
+      imagePullPolicy: Never
+      command:
+        - /bin/sh
+        - -ec
+        - |
+          printf 'POLL_INTERVAL=60s\nLAB_PATTERN=init-sidecar\n' > /shared/runtime.env
+          printf 'initialized_at=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > /shared/init-status
+          : > /shared/app.log
+          echo "init container prepared shared data"
+      volumeMounts:
+        - {name: shared-data, mountPath: /shared}
+      resources:
+        requests: {cpu: 5m, memory: 8Mi}
+        limits: {cpu: 25m, memory: 16Mi}
+  containers:
+    - name: manager
+      image: tcp-lb-mini/pod-state-manager:v2
+      imagePullPolicy: Never
+      command:
+        - /bin/sh
+        - -ec
+        - |
+          set -a
+          . /shared/runtime.env
+          set +a
+          echo "app loaded LAB_PATTERN=${LAB_PATTERN} POLL_INTERVAL=${POLL_INTERVAL}" >> /shared/app.log
+          /app 2>&1 | tee -a /shared/app.log
+      env:
+        - {name: REDIS_ADDR, value: "redis:6379"}
+        - name: MANAGED_SERVICES
+          value: tcp-lb-gateway=tcp-lb-gateway:8080,tcp-backend-worker1=tcp-backend-worker1:8080,tcp-backend-worker2=tcp-backend-worker2:8080
+      volumeMounts:
+        - {name: shared-data, mountPath: /shared}
+      resources:
+        requests: {cpu: 20m, memory: 24Mi}
+        limits: {cpu: 100m, memory: 64Mi}
+    - name: log-sidecar
+      image: tcp-lb-mini/pod-state-manager:v2
+      imagePullPolicy: Never
+      command:
+        - /bin/sh
+        - -ec
+        - |
+          echo "sidecar observed: $(cat /shared/init-status)"
+          exec tail -n +1 -f /shared/app.log
+      volumeMounts:
+        - {name: shared-data, mountPath: /shared, readOnly: true}
+      readinessProbe:
+        exec:
+          command: ["/bin/sh", "-ec", "test -s /shared/app.log"]
+        periodSeconds: 2
+      resources:
+        requests: {cpu: 5m, memory: 8Mi}
+        limits: {cpu: 25m, memory: 16Mi}

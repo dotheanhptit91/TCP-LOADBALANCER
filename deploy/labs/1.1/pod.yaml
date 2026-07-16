@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    app: tcp-lb-60-second-pod
+    component: pod-state-manager
+    lab: "1.1"
+    track: exam-speed
+  name: tcp-lb-60-second-pod
+  namespace: tcp-lb-mini
+spec:
+  containers:
+    - env:
+        - name: LAB_NAME
+          value: the-60-second-pod
+        - name: REDIS_ADDR
+          value: redis:6379
+        - name: POLL_INTERVAL
+          value: 60s
+        - name: MANAGED_SERVICES
+          value: tcp-lb-gateway=tcp-lb-gateway:8080,tcp-backend-worker1=tcp-backend-worker1:8080,tcp-backend-worker2=tcp-backend-worker2:8080
+      image: tcp-lb-mini/pod-state-manager:v2
+      imagePullPolicy: Never
+      name: tcp-lb-60-second-pod
+      resources:
+        limits:
+          cpu: 100m
+          memory: 64Mi
+        requests:
+          cpu: 25m
+          memory: 32Mi
+  dnsPolicy: ClusterFirst
+  restartPolicy: Never

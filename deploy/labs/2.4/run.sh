@@ -2,7 +2,7 @@
 set -eu
 
 namespace="${NAMESPACE:-tcp-lb-mini}"
-overlay="deploy/kustomize/pod-state-manager/overlays/lab"
+overlay="deploy/labs/2.4/kustomize/overlays/lab"
 deployment="pod-state-manager-kustomize"
 
 echo "==> Rendering overlay"

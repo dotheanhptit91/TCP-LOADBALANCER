@@ -4,7 +4,7 @@ Phiên bản Bài thực hành 2.1 này thao tác trên Deployment `pod-state-ma
 thực tế trong namespace `tcp-lb-mini`.
 
 ```bash
-sh scripts/lab-2.1-pod-state-manager.sh
+sh deploy/labs/2.1/run-pod-state-manager.sh
 ```
 
 Kịch bản thực hiện các thao tác sau:

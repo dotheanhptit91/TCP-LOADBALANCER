@@ -3,10 +3,16 @@
 Bài thực hành này chạy trong namespace `tcp-lb-mini` và sử dụng các điểm cuối
 kiểm tra tình trạng hoạt động hiện có của bộ cân bằng tải TCP.
 
+Chạy toàn bộ bài thực hành từ thư mục gốc dự án:
+
+```bash
+sh deploy/labs/1.3/run.sh
+```
+
 ## Chạy bài thực hành
 
 ```bash
-kubectl apply -f deploy/lab-1.3-jobs.yaml
+kubectl apply -f deploy/labs/1.3/jobs.yaml
 kubectl -n tcp-lb-mini wait --for=condition=complete \
   job/tcp-lb-one-off-check --timeout=120s
 kubectl -n tcp-lb-mini logs job/tcp-lb-one-off-check
@@ -46,5 +52,5 @@ khi bộ điều khiển Job đánh dấu chính Job đó là thất bại.
 ## Dọn dẹp
 
 ```bash
-kubectl delete -f deploy/lab-1.3-jobs.yaml
+kubectl delete -f deploy/labs/1.3/jobs.yaml
 ```

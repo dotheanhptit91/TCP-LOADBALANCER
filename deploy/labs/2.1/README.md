@@ -9,7 +9,7 @@ Bài thực hành không sửa đổi các Deployment gateway, máy chủ hoặc
 Từ thư mục gốc của dự án:
 
 ```bash
-sh scripts/lab-2.1.sh
+sh deploy/labs/2.1/run-demo.sh
 ```
 
 Kịch bản thực hiện và theo dõi các giai đoạn sau:
@@ -49,5 +49,5 @@ bao giờ chuyển sang trạng thái Ready, vì vậy Kubernetes không xóa to
 ## Dọn dẹp
 
 ```bash
-kubectl delete -f deploy/lab-2.1-rolling-update.yaml
+kubectl delete -f deploy/labs/2.1/rolling-update.yaml
 ```
