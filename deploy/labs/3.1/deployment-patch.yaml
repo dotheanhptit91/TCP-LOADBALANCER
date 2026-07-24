@@ -1,0 +1,22 @@
+spec:
+  template:
+    metadata:
+      labels:
+        lab.tcp-lb/config-injection: "3.1"
+    spec:
+      containers:
+        - name: manager
+          env:
+            - name: BACKEND_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: tcp-lb-lab-3-1-secret
+                  key: api-token
+          volumeMounts:
+            - name: lab-3-1-config
+              mountPath: /etc/tcp-lb-config
+              readOnly: true
+      volumes:
+        - name: lab-3-1-config
+          configMap:
+            name: tcp-lb-lab-3-1-config
